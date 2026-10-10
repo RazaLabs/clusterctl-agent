@@ -167,7 +167,7 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
         - name: RELAY_URL
-          value: https://api-kubctl.dev.razalabs.com
+          value: https://api-kubctl.razalabs.com
         - name: CLUSTER_NAME
           value: my-cluster
         - name: PORT

@@ -47,7 +47,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: helm/kind-action@v1
-      - run: kubectl apply --dry-run=server -f deploy/kubctl-agent.yaml
+      # A throwaway cluster, so apply for real: a server dry run can't create
+      # the namespace the other objects need.
+      - run: kubectl apply -f deploy/kubctl-agent.yaml
 
   image:
     needs: [test, vulnerabilities, manifests]

@@ -1,0 +1,129 @@
+{
+ "name": "nodes, volume claims and jobs",
+ "objects": {
+  "nodes": [
+   {
+    "apiVersion": "v1",
+    "kind": "Node",
+    "metadata": {
+     "name": "n1",
+     "creationTimestamp": "2026-10-01T00:00:00Z"
+    },
+    "spec": {
+     "unschedulable": true
+    },
+    "status": {
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "False"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Node",
+    "metadata": {
+     "name": "n2",
+     "creationTimestamp": "2026-10-01T00:00:00Z"
+    },
+    "spec": {},
+    "status": {
+     "conditions": [
+      {
+       "type": "Ready",
+       "status": "True"
+      }
+     ]
+    }
+   }
+  ],
+  "pvcs": [
+   {
+    "apiVersion": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+     "name": "data",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "db"
+    },
+    "spec": {},
+    "status": {
+     "phase": "Lost"
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+     "name": "new",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "db"
+    },
+    "spec": {},
+    "status": {
+     "phase": "Pending"
+    }
+   }
+  ],
+  "jobs": [
+   {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+     "name": "backup",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "db"
+    },
+    "spec": {
+     "completions": 1,
+     "selector": {
+      "matchLabels": {
+       "job": "backup"
+      }
+     },
+     "template": {
+      "spec": {
+       "containers": []
+      }
+     }
+    },
+    "status": {
+     "conditions": [
+      {
+       "type": "Failed",
+       "status": "True"
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "nodes/-/n1",
+   "title": "Node n1 is not ready",
+   "detail": "Node · NotReady,SchedulingDisabled",
+   "severity": "critical"
+  },
+  {
+   "id": "pvcs/db/data",
+   "title": "Volume claim data is lost",
+   "detail": "Volume claim in db · Lost",
+   "severity": "critical"
+  },
+  {
+   "id": "pvcs/db/new",
+   "title": "Volume claim new is stuck pending",
+   "detail": "Volume claim in db · Pending",
+   "severity": "warning"
+  },
+  {
+   "id": "jobs/db/backup",
+   "title": "Job backup failed",
+   "detail": "Job in db · 0/1",
+   "severity": "critical"
+  }
+ ]
+}

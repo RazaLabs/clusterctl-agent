@@ -1,0 +1,20 @@
+{
+ "clusterId": "53248e3ecdda2ecf9bc9b636f3587a33",
+ "code": "kubctl-pair-v1:eyJyZWxheSI6Imh0dHBzOi8vcmVsYXkuZXhhbXBsZSIsInJlbGF5S2V5IjoidS1NWnoxeWRHTHQwZHlBRE1zV2RuUzhBSVRnRmZGVEpaYXR0UE1IWGJ4byIsInNlYWxLZXkiOiJpY0kxRkwzVnFTR0x6cW5nblQwdHJfZTBweXRoaEctckpoOWgwaUlreGFJIiwiY2x1c3RlciI6InByb2QtZXUifQ",
+ "message": {
+  "alert": {
+   "id": "pods/shop/api",
+   "title": "api keeps crashing"
+  },
+  "cluster": "53248e3ecdda2ecf9bc9b636f3587a33",
+  "state": "firing"
+ },
+ "pairing": {
+  "cluster": "prod-eu",
+  "relay": "https://relay.example",
+  "relayKey": "u-MZz1ydGLt0dyADMsWdnS8AITgFfFTJZattPMHXbxo",
+  "sealKey": "icI1FL3VqSGLzqngnT0tr_e0pythhG-rJh9h0iIkxaI"
+ },
+ "sealedByDart": "zgYyEuLkT5ahfuIZwXiXt4uq6IvuD6VZUtp2sdSABIe9fuJ-kMbcq96_AyMm9wzG5CknjPub-_Zx-AkBijF6oM5x_YhH_6g4zJ_yxXeoAC3Mn1JtLeNbF3jl4eUWH4XYwUNN8DZxFZPa_tnF_C417-eTt5SzIXb4xwyZ4EazQre3_m0Pukj4PU5J-MDc_L9d2dANAHLRMA",
+ "sealedByGo": "fPsjofQE5oi7Xvm7sg8HF5ISOTM0hz-YD7xb981aEpMoLbhc49qKFL0tLOfktqFCg4dDCAYlnpMj3Q25MW_pppFds19cChu7VkCqWawYilAFskWYm4beV3TRc1-U05EwhwBUyn4qLROhYj0XeCbbi0MxsBeUnFKFANGL1U_Gf9GkKa5iVZQQN8opLKsujqt3Op_zykIiTg"
+}

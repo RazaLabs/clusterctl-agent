@@ -1,0 +1,125 @@
+{
+ "name": "daemonsets and statefulsets",
+ "objects": {
+  "daemonsets": [
+   {
+    "apiVersion": "apps/v1",
+    "kind": "DaemonSet",
+    "metadata": {
+     "name": "agent",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "ops"
+    },
+    "spec": {
+     "selector": {
+      "matchLabels": {
+       "app": "agent"
+      }
+     },
+     "template": {
+      "spec": {
+       "containers": []
+      }
+     }
+    },
+    "status": {
+     "desiredNumberScheduled": 3,
+     "numberReady": 2
+    }
+   }
+  ],
+  "statefulsets": [
+   {
+    "apiVersion": "apps/v1",
+    "kind": "StatefulSet",
+    "metadata": {
+     "name": "db",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "ops"
+    },
+    "spec": {
+     "replicas": 1,
+     "selector": {
+      "matchLabels": {
+       "app": "db"
+      }
+     },
+     "template": {
+      "metadata": {
+       "labels": {
+        "app": "db"
+       }
+      },
+      "spec": {
+       "containers": [
+        {
+         "name": "c",
+         "image": "x"
+        }
+       ]
+      }
+     }
+    },
+    "status": {
+     "readyReplicas": 0
+    }
+   }
+  ],
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "db-0",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "ops",
+     "labels": {
+      "app": "db"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 4,
+       "state": {
+        "waiting": {
+         "reason": "CrashLoopBackOff"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "daemonsets/ops/agent",
+   "title": "agent isn’t fully ready",
+   "detail": "DaemonSet in ops · 2 of 3 ready",
+   "severity": "warning"
+  },
+  {
+   "id": "statefulsets/ops/db",
+   "title": "db keeps crashing",
+   "detail": "StatefulSet in ops · 0 of 1 ready · 1 pod crash-looping",
+   "severity": "critical",
+   "affected": [
+    "db-0"
+   ]
+  }
+ ]
+}

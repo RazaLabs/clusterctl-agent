@@ -1,0 +1,167 @@
+{
+ "name": "crash-looping pods fold into their failing deployment",
+ "objects": {
+  "deployments": [
+   {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+     "name": "api",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop"
+    },
+    "spec": {
+     "replicas": 3,
+     "selector": {
+      "matchLabels": {
+       "app": "api"
+      }
+     },
+     "template": {
+      "metadata": {
+       "labels": {
+        "app": "api"
+       }
+      },
+      "spec": {
+       "containers": [
+        {
+         "name": "c",
+         "image": "x"
+        }
+       ]
+      }
+     }
+    },
+    "status": {
+     "readyReplicas": 1
+    }
+   }
+  ],
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "api-1",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "api"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 7,
+       "state": {
+        "waiting": {
+         "reason": "CrashLoopBackOff"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "api-2",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "api"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 5,
+       "state": {
+        "waiting": {
+         "reason": "CrashLoopBackOff"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "api-3",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "api"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": true,
+       "restartCount": 0,
+       "state": {
+        "running": {
+         "startedAt": "2026-10-01T00:00:00Z"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "deployments/shop/api",
+   "title": "api keeps crashing",
+   "detail": "Deployment in shop · 1 of 3 ready · 2 pods crash-looping",
+   "severity": "critical",
+   "affected": [
+    "api-1",
+    "api-2"
+   ]
+  }
+ ]
+}

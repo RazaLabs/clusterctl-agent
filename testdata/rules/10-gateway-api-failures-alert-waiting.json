@@ -1,0 +1,103 @@
+{
+ "name": "gateway api: failures alert, waiting for a controller doesn't",
+ "objects": {
+  "gateways": [
+   {
+    "apiVersion": "gateway.networking.k8s.io/v1",
+    "kind": "Gateway",
+    "metadata": {
+     "name": "public",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "web"
+    },
+    "spec": {
+     "gatewayClassName": "x",
+     "listeners": []
+    },
+    "status": {
+     "conditions": [
+      {
+       "type": "Programmed",
+       "status": "False",
+       "reason": "Invalid",
+       "message": "",
+       "lastTransitionTime": "2026-10-01T00:00:00Z"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "gateway.networking.k8s.io/v1",
+    "kind": "Gateway",
+    "metadata": {
+     "name": "new",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "web"
+    },
+    "spec": {
+     "gatewayClassName": "x",
+     "listeners": []
+    },
+    "status": {}
+   }
+  ],
+  "httproutes": [
+   {
+    "apiVersion": "gateway.networking.k8s.io/v1",
+    "kind": "HTTPRoute",
+    "metadata": {
+     "name": "hooks",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "web"
+    },
+    "spec": {},
+    "status": {
+     "parents": [
+      {
+       "parentRef": {
+        "name": "public"
+       },
+       "controllerName": "x",
+       "conditions": [
+        {
+         "type": "Accepted",
+         "status": "False",
+         "reason": "NotAllowed",
+         "message": "",
+         "lastTransitionTime": "2026-10-01T00:00:00Z"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "gateway.networking.k8s.io/v1",
+    "kind": "HTTPRoute",
+    "metadata": {
+     "name": "site",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "web"
+    },
+    "spec": {},
+    "status": {
+     "parents": []
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "gateways/web/public",
+   "title": "Gateway public isn’t programmed",
+   "detail": "Gateway in web · Not programmed",
+   "severity": "critical"
+  },
+  {
+   "id": "httproutes/web/hooks",
+   "title": "Route hooks was rejected",
+   "detail": "HTTPRoute in web · Rejected",
+   "severity": "critical"
+  }
+ ]
+}

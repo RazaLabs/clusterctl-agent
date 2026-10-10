@@ -1,0 +1,89 @@
+{
+ "name": "a failing pod of a healthy deployment alerts on its own",
+ "objects": {
+  "deployments": [
+   {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+     "name": "api",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop"
+    },
+    "spec": {
+     "replicas": 3,
+     "selector": {
+      "matchLabels": {
+       "app": "api"
+      }
+     },
+     "template": {
+      "metadata": {
+       "labels": {
+        "app": "api"
+       }
+      },
+      "spec": {
+       "containers": [
+        {
+         "name": "c",
+         "image": "x"
+        }
+       ]
+      }
+     }
+    },
+    "status": {
+     "readyReplicas": 3
+    }
+   }
+  ],
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "api-new",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "api"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "waiting": {
+         "reason": "ImagePullBackOff"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "pods/shop/api-new",
+   "title": "api-new can’t pull its image",
+   "detail": "Pod in shop · ImagePullBackOff",
+   "severity": "critical"
+  }
+ ]
+}

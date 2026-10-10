@@ -1,0 +1,130 @@
+{
+ "name": "all pods failing means the deployment is down",
+ "objects": {
+  "deployments": [
+   {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+     "name": "worker",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop"
+    },
+    "spec": {
+     "replicas": 2,
+     "selector": {
+      "matchLabels": {
+       "app": "worker"
+      }
+     },
+     "template": {
+      "metadata": {
+       "labels": {
+        "app": "worker"
+       }
+      },
+      "spec": {
+       "containers": [
+        {
+         "name": "c",
+         "image": "x"
+        }
+       ]
+      }
+     }
+    },
+    "status": {
+     "readyReplicas": 0
+    }
+   }
+  ],
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "worker-1",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "worker"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "waiting": {
+         "reason": "ImagePullBackOff"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "worker-2",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "worker"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "waiting": {
+         "reason": "ErrImagePull"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "deployments/shop/worker",
+   "title": "worker can’t pull its image",
+   "detail": "Deployment in shop · 0 of 2 ready · 2 pods can’t pull the image",
+   "severity": "critical",
+   "affected": [
+    "worker-1",
+    "worker-2"
+   ]
+  }
+ ]
+}

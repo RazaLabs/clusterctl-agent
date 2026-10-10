@@ -1,0 +1,81 @@
+{
+ "name": "pending and starting pods are warnings",
+ "objects": {
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "unscheduled",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "a"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending"
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "creating",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "b"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "waiting": {
+         "reason": "ContainerCreating"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "pods/shop/unscheduled",
+   "title": "unscheduled can’t be scheduled",
+   "detail": "Pod in shop · Pending",
+   "severity": "warning"
+  },
+  {
+   "id": "pods/shop/creating",
+   "title": "creating is stuck starting",
+   "detail": "Pod in shop · ContainerCreating",
+   "severity": "warning"
+  }
+ ]
+}

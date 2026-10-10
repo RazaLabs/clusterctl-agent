@@ -1,0 +1,160 @@
+{
+ "name": "lone pods: out of memory, config error, init failure",
+ "objects": {
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "oom",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "a"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 2,
+       "state": {
+        "terminated": {
+         "exitCode": 137,
+         "reason": "OOMKilled"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "cfg",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "b"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "waiting": {
+         "reason": "CreateContainerConfigError"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "init",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "c"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ],
+     "initContainers": [
+      {
+       "name": "i0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Pending",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "waiting": {
+         "reason": "PodInitializing"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ],
+     "initContainerStatuses": [
+      {
+       "name": "i0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "terminated": {
+         "exitCode": 2,
+         "reason": "Error"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "pods/shop/oom",
+   "title": "oom ran out of memory",
+   "detail": "Pod in shop · OOMKilled · 2 restarts",
+   "severity": "critical"
+  },
+  {
+   "id": "pods/shop/cfg",
+   "title": "cfg has a configuration error",
+   "detail": "Pod in shop · CreateContainerConfigError",
+   "severity": "critical"
+  },
+  {
+   "id": "pods/shop/init",
+   "title": "init has a failing init container (Init:Error)",
+   "detail": "Pod in shop · Init:Error",
+   "severity": "critical"
+  }
+ ]
+}

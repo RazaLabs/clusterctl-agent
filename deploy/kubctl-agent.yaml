@@ -1,0 +1,214 @@
+# kubctl agent 0.1.0: sends alerts about this cluster to kubctl on your phone.
+#
+# 1. Check CLUSTER_NAME below: it is the name shown in notifications.
+# 2. kubectl apply -f kubctl-agent.yaml
+# 3. Pair your phone: in kubctl, open Settings › Alerts on this cluster. If your
+#    account can read the agent's secret it pairs by itself; otherwise share this code:
+#    kubectl -n kubctl-system get secret kubctl-agent -o jsonpath='{.data.pairing-code}' | base64 -d
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubctl-agent
+  namespace: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubctl-agent
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  - persistentvolumeclaims
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  - httproutes
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubctl-agent
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubctl-agent
+subjects:
+- kind: ServiceAccount
+  name: kubctl-agent
+  namespace: kubctl-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubctl-agent
+  namespace: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  verbs:
+  - get
+  - create
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubctl-agent
+  namespace: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubctl-agent
+subjects:
+- kind: ServiceAccount
+  name: kubctl-agent
+  namespace: kubctl-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubctl-agent-config
+  namespace: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+data:
+  details: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubctl-agent
+  namespace: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubctl-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubctl-agent
+        app.kubernetes.io/managed-by: kubctl
+    spec:
+      serviceAccountName: kubctl-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: agent
+        image: ghcr.io/razalabs/kubctl-agent:0.1.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: RELAY_URL
+          value: https://api-kubctl.dev.razalabs.com
+        - name: CLUSTER_NAME
+          value: my-cluster
+        - name: PORT
+          value: "8080"
+        ports:
+        - name: http
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 30
+        resources:
+          requests:
+            cpu: 10m
+            memory: 48Mi
+          limits:
+            memory: 192Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubctl-agent
+  namespace: kubctl-system
+  labels:
+    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/managed-by: kubctl
+spec:
+  selector:
+    app.kubernetes.io/name: kubctl-agent
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http

@@ -1,0 +1,158 @@
+{
+ "name": "healthy, completed, terminating and scaled-to-zero things don't alert",
+ "objects": {
+  "deployments": [
+   {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+     "name": "off",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop"
+    },
+    "spec": {
+     "replicas": 0,
+     "selector": {
+      "matchLabels": {
+       "app": "off"
+      }
+     },
+     "template": {
+      "metadata": {
+       "labels": {
+        "app": "off"
+       }
+      },
+      "spec": {
+       "containers": [
+        {
+         "name": "c",
+         "image": "x"
+        }
+       ]
+      }
+     }
+    },
+    "status": {
+     "readyReplicas": 0
+    }
+   }
+  ],
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "ok",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "api"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": true,
+       "restartCount": 0,
+       "state": {
+        "running": {
+         "startedAt": "2026-10-01T00:00:00Z"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "done",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "j"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Succeeded",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 0,
+       "state": {
+        "terminated": {
+         "exitCode": 0,
+         "reason": "Completed"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "going",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "g"
+     },
+     "deletionTimestamp": "2026-10-01T01:00:00Z"
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": true,
+       "restartCount": 0,
+       "state": {
+        "running": {
+         "startedAt": "2026-10-01T00:00:00Z"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": []
+}

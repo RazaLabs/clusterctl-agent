@@ -1,0 +1,95 @@
+{
+ "name": "running but not ready: warning until it restarts a lot",
+ "objects": {
+  "pods": [
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "slow",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "a"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 1,
+       "state": {
+        "running": {
+         "startedAt": "2026-10-01T00:00:00Z"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+     "name": "flappy",
+     "creationTimestamp": "2026-10-01T00:00:00Z",
+     "namespace": "shop",
+     "labels": {
+      "app": "b"
+     }
+    },
+    "spec": {
+     "containers": [
+      {
+       "name": "c0",
+       "image": "x"
+      }
+     ]
+    },
+    "status": {
+     "phase": "Running",
+     "containerStatuses": [
+      {
+       "name": "c0",
+       "ready": false,
+       "restartCount": 9,
+       "state": {
+        "running": {
+         "startedAt": "2026-10-01T00:00:00Z"
+        }
+       },
+       "image": "x",
+       "imageID": ""
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "alerts": [
+  {
+   "id": "pods/shop/slow",
+   "title": "slow isn’t ready",
+   "detail": "Pod in shop · Running · 1 restarts",
+   "severity": "warning"
+  },
+  {
+   "id": "pods/shop/flappy",
+   "title": "flappy isn’t ready",
+   "detail": "Pod in shop · Running · 9 restarts",
+   "severity": "critical"
+  }
+ ]
+}

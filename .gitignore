@@ -1,0 +1,4 @@
+/kubctl-agent
+/dist/
+*.test
+*.out

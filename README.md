@@ -37,7 +37,7 @@ If you can't, it offers this YAML to send to an admin.
 ### Yourself
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/RazaLabs/kubctl-agent/production/deploy/kubctl-agent.yaml
+kubectl apply -f https://github.com/RazaLabs/kubctl-agent/releases/latest/download/kubctl-agent.yaml
 kubectl -n kubctl-system set env deploy/kubctl-agent CLUSTER_NAME=prod-eu   # the name shown in notifications
 ```
 
@@ -122,4 +122,14 @@ The kubctl app runs the same checks on live data, so both test against the cases
 Change wording or rules there first. `deploy/kubctl-agent.yaml` is generated from the app's installer, so the app
 and this YAML install exactly the same thing. Edit it there, not by hand.
 
-Releases: tag `vX.Y.Z` and CI publishes `ghcr.io/razalabs/kubctl-agent:X.Y.Z` for amd64 and arm64.
+### Releases
+
+Merging into `production` releases automatically. CI picks the version from commit titles since the last tag:
+
+- `fix:` (or anything else) → patch,
+- `feat:` → minor,
+- `feat!:` → breaking.
+
+It then tags `vX.Y.Z`, publishes `ghcr.io/razalabs/kubctl-agent:X.Y.Z` (also `:X.Y` and `:latest`) for amd64 and
+arm64, and attaches `kubctl-agent.yaml` pinned to that image to the GitHub release. `develop` and `master` publish
+`:develop` and `:master` for testing. See `.github/scripts/next-version.sh`.

@@ -1,16 +1,17 @@
 # Branches:
 #   develop     day-to-day work   → image :develop
 #   master      next release      → image :master
-#   production  what users run    → image :latest (the install YAML is read from here)
-#   tag vX.Y.Z  a release         → image :X.Y.Z and :X.Y (the install YAML pins this)
-# Pull requests run the same checks and build the image without pushing it.
+#   production  what users run    → a release: tag vX.Y.Z, images :X.Y.Z :X.Y :latest,
+#                                   and the install YAML pinned to that image
+# The version comes from commit titles since the last tag (.github/scripts/next-version.sh):
+# fix: → patch, feat: → minor, feat!: → breaking. Pull requests run the checks and
+# build the image without pushing it.
 name: ci
 
 on:
   pull_request:
   push:
     branches: [master, develop, production]
-    tags: ['v*']
 
 permissions:
   contents: read
@@ -41,7 +42,7 @@ jobs:
           go-version-file: go.mod
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
-  # Install YAML must apply cleanly (it's generated in the kubctl app's repo).
+  # The install YAML must apply cleanly (it's generated in the kubctl-app repo).
   manifests:
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +53,7 @@ jobs:
       - run: kubectl apply -f deploy/kubctl-agent.yaml
 
   image:
+    if: github.ref != 'refs/heads/production'
     needs: [test, vulnerabilities, manifests]
     runs-on: ubuntu-latest
     permissions:
@@ -59,7 +61,6 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         if: github.event_name == 'push'
@@ -72,10 +73,7 @@ jobs:
         with:
           images: ghcr.io/razalabs/kubctl-agent
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/production' }}
-            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/production' }}
+            type=ref,event=branch
             type=sha,enable=${{ github.event_name == 'push' }}
             type=ref,event=pr
       - uses: docker/build-push-action@v6
@@ -84,8 +82,66 @@ jobs:
           # PRs only check that it builds; pushes publish both architectures.
           platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ github.event_name == 'push' }}
-          build-args: VERSION=${{ steps.meta.outputs.version }}
+          build-args: VERSION=${{ github.ref_name }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/production'
+    needs: [test, vulnerabilities, manifests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: version
+        run: echo "version=$(.github/scripts/next-version.sh)" >> "$GITHUB_OUTPUT"
+      - if: steps.version.outputs.version == ''
+        run: echo "Nothing new since the last release."
+      - if: steps.version.outputs.version != ''
+        uses: docker/setup-buildx-action@v3
+      - if: steps.version.outputs.version != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.version.outputs.version != ''
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/razalabs/kubctl-agent
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }}
+            type=raw,value=latest
+      - if: steps.version.outputs.version != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - if: steps.version.outputs.version != ''
+        name: Tag and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist
+          # Install YAML pinned to exactly this release's image.
+          sed -E "s#image: ghcr.io/razalabs/kubctl-agent:[^[:space:]]+#image: ghcr.io/razalabs/kubctl-agent:${VERSION}#" \
+            deploy/kubctl-agent.yaml > dist/kubctl-agent.yaml
+          grep -q "kubctl-agent:${VERSION}" dist/kubctl-agent.yaml
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+          gh release create "v${VERSION}" dist/kubctl-agent.yaml --title "v${VERSION}" --generate-notes

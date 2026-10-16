@@ -1,6 +1,6 @@
 // Package pairing holds the keys that link phones to a cluster's agent, and
 // seals alert details so only paired phones can read them. The formats are
-// shared with the kubctl app (testdata/pairing.json checks both agree).
+// shared with the clusterctl app (testdata/pairing.json checks both agree).
 package pairing
 
 import (
@@ -56,7 +56,7 @@ func RelayID(key string) string {
 // ClusterID is the cluster's id at the relay.
 func (p Pairing) ClusterID() string { return RelayID(p.RelayKey) }
 
-const codePrefix = "kubctl-pair-v1:"
+const codePrefix = "clusterctl-pair-v1:"
 
 // Code is the pairing code an admin shares with people who can't read the
 // agent's Secret.
@@ -69,7 +69,7 @@ func (p Pairing) Code() string {
 func ParseCode(code string) (Pairing, error) {
 	body, ok := strings.CutPrefix(strings.TrimSpace(code), codePrefix)
 	if !ok {
-		return Pairing{}, errors.New("not a kubctl pairing code")
+		return Pairing{}, errors.New("not a clusterctl pairing code")
 	}
 	raw, err := b64.DecodeString(strings.TrimRight(body, "="))
 	if err != nil {

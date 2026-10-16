@@ -27,17 +27,17 @@ import (
 	gwclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gwinformers "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
-	"github.com/RazaLabs/kubctl-agent/internal/pairing"
-	"github.com/RazaLabs/kubctl-agent/internal/rules"
+	"github.com/RazaLabs/clusterctl-agent/internal/pairing"
+	"github.com/RazaLabs/clusterctl-agent/internal/rules"
 )
 
 // Version is reported to the app; set at build time with -ldflags.
 var Version = "0.1.0"
 
 const (
-	secretName = "kubctl-agent"
-	configName = "kubctl-agent-config"
-	stateName  = "kubctl-agent-state"
+	secretName = "clusterctl-agent"
+	configName = "clusterctl-agent-config"
+	stateName  = "clusterctl-agent-state"
 )
 
 // Config comes from the environment (see FromEnv).
@@ -60,7 +60,7 @@ type Config struct {
 //	CLUSTER_NAME  the name shown in notifications
 //	RELAY_CA      PEM file of extra CAs to trust for the relay
 //	PORT          HTTP port for /healthz and /alertmanager (8080)
-//	POD_NAMESPACE where the agent's Secret and ConfigMaps live (kubctl-system)
+//	POD_NAMESPACE where the agent's Secret and ConfigMaps live (clusterctl-system)
 func FromEnv() (Config, error) {
 	var rc *rest.Config
 	var err error
@@ -77,7 +77,7 @@ func FromEnv() (Config, error) {
 	}
 	ns := os.Getenv("POD_NAMESPACE")
 	if ns == "" {
-		ns = "kubctl-system"
+		ns = "clusterctl-system"
 	}
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -183,7 +183,7 @@ func (a *Agent) ensurePairing(ctx context.Context) (pairing.Pairing, error) {
 	p := pairing.Generate(a.cfg.RelayURL, name)
 	_, err = secrets.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: a.cfg.Namespace, Labels: map[string]string{
-			"app.kubernetes.io/name": "kubctl-agent", "app.kubernetes.io/managed-by": "kubctl",
+			"app.kubernetes.io/name": "clusterctl-agent", "app.kubernetes.io/managed-by": "clusterctl",
 		}},
 		Type: corev1.SecretTypeOpaque,
 		Data: p.SecretData(),
@@ -433,7 +433,7 @@ func (a *Agent) hello() {
 			summary += "…"
 		}
 	}
-	body := "kubctl is now watching this cluster."
+	body := "clusterctl is now watching this cluster."
 	if a.details {
 		body += " " + summary
 	}
@@ -441,7 +441,7 @@ func (a *Agent) hello() {
 	if err != nil {
 		return
 	}
-	a.relay.Send(PushMessage{ID: "kubctl:hello", State: "firing", Title: a.pairing.Cluster, Body: body, Sealed: sealed})
+	a.relay.Send(PushMessage{ID: "clusterctl:hello", State: "firing", Title: a.pairing.Cluster, Body: body, Sealed: sealed})
 }
 
 func (a *Agent) alertmanager(ctx context.Context, alerts []AmAlert) {
@@ -491,7 +491,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			errs <- err
 		}
 	}()
-	slog.Info("kubctl agent watching", "version", Version, "cluster", a.pairing.Cluster, "relay", a.pairing.RelayURL)
+	slog.Info("clusterctl agent watching", "version", Version, "cluster", a.pairing.Cluster, "relay", a.pairing.RelayURL)
 
 	every := a.cfg.Tick
 	if every == 0 {

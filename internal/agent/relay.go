@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RazaLabs/kubctl-agent/internal/pairing"
-	"github.com/RazaLabs/kubctl-agent/internal/rules"
+	"github.com/RazaLabs/clusterctl-agent/internal/pairing"
+	"github.com/RazaLabs/clusterctl-agent/internal/rules"
 )
 
 // PushMessage is one notification as the relay takes it. Title and Body
@@ -45,11 +45,11 @@ func pushFor(p pairing.Pairing, a rules.Alert, resolved, details bool) (PushMess
 	case details:
 		body = a.Title + "\n" + a.Detail
 	case resolved:
-		body = "Resolved problem. Open kubctl to see it."
+		body = "Resolved problem. Open clusterctl to see it."
 	case a.Severity == rules.Critical:
-		body = "Critical problem. Open kubctl to see it."
+		body = "Critical problem. Open clusterctl to see it."
 	default:
-		body = "Warning problem. Open kubctl to see it."
+		body = "Warning problem. Open clusterctl to see it."
 	}
 	return PushMessage{ID: a.ID, State: state, Title: p.Cluster, Body: body, Sealed: sealed}, nil
 }

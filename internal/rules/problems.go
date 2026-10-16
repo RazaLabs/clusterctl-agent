@@ -68,7 +68,7 @@ func ProblemOf(r Row, now time.Time) (Alert, bool) {
 	}
 	return Alert{
 		ID: AlertID(r.Kind, r.Namespace, r.Name), Title: title, Detail: detail(r), Severity: sev, Since: now,
-		Source: FromKubctl, Kind: r.Kind, Namespace: r.Namespace, Name: r.Name,
+		Source: FromClusterctl, Kind: r.Kind, Namespace: r.Namespace, Name: r.Name,
 	}, true
 }
 

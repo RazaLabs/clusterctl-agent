@@ -42,7 +42,7 @@ jobs:
           go-version-file: go.mod
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
-  # The install YAML must apply cleanly (it's generated in the kubctl-app repo).
+  # The install YAML must apply cleanly (it's generated in the clusterctl-app repo).
   manifests:
     runs-on: ubuntu-latest
     steps:
@@ -50,7 +50,7 @@ jobs:
       - uses: helm/kind-action@v1
       # A throwaway cluster, so apply for real: a server dry run can't create
       # the namespace the other objects need.
-      - run: kubectl apply -f deploy/kubctl-agent.yaml
+      - run: kubectl apply -f deploy/clusterctl-agent.yaml
 
   image:
     if: github.ref != 'refs/heads/production'
@@ -71,7 +71,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/razalabs/kubctl-agent
+          images: ghcr.io/razalabs/clusterctl-agent
           tags: |
             type=ref,event=branch
             type=sha,enable=${{ github.event_name == 'push' }}
@@ -115,7 +115,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/razalabs/kubctl-agent
+          images: ghcr.io/razalabs/clusterctl-agent
           tags: |
             type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }}
@@ -139,9 +139,9 @@ jobs:
         run: |
           mkdir -p dist
           # Install YAML pinned to exactly this release's image.
-          sed -E "s#image: ghcr.io/razalabs/kubctl-agent:[^[:space:]]+#image: ghcr.io/razalabs/kubctl-agent:${VERSION}#" \
-            deploy/kubctl-agent.yaml > dist/kubctl-agent.yaml
-          grep -q "kubctl-agent:${VERSION}" dist/kubctl-agent.yaml
+          sed -E "s#image: ghcr.io/razalabs/clusterctl-agent:[^[:space:]]+#image: ghcr.io/razalabs/clusterctl-agent:${VERSION}#" \
+            deploy/clusterctl-agent.yaml > dist/clusterctl-agent.yaml
+          grep -q "clusterctl-agent:${VERSION}" dist/clusterctl-agent.yaml
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
-          gh release create "v${VERSION}" dist/kubctl-agent.yaml --title "v${VERSION}" --generate-notes
+          gh release create "v${VERSION}" dist/clusterctl-agent.yaml --title "v${VERSION}" --generate-notes

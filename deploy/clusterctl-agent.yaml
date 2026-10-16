@@ -1,35 +1,35 @@
-# kubctl agent 0.1.0: sends alerts about this cluster to kubctl on your phone.
+# clusterctl agent 0.1.0: sends alerts about this cluster to clusterctl on your phone.
 #
 # 1. Check CLUSTER_NAME below: it is the name shown in notifications.
-# 2. kubectl apply -f kubctl-agent.yaml
-# 3. Pair your phone: in kubctl, open Settings › Alerts on this cluster. If your
+# 2. kubectl apply -f clusterctl-agent.yaml
+# 3. Pair your phone: in clusterctl, open Settings › Alerts on this cluster. If your
 #    account can read the agent's secret it pairs by itself; otherwise share this code:
-#    kubectl -n kubctl-system get secret kubctl-agent -o jsonpath='{.data.pairing-code}' | base64 -d
+#    kubectl -n clusterctl-system get secret clusterctl-agent -o jsonpath='{.data.pairing-code}' | base64 -d
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kubctl-system
+  name: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kubctl-agent
+  name: clusterctl-agent
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 rules:
 - apiGroups:
   - ""
@@ -73,27 +73,27 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kubctl-agent
+  name: clusterctl-agent
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kubctl-agent
+  name: clusterctl-agent
 subjects:
 - kind: ServiceAccount
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 rules:
 - apiGroups:
   - ""
@@ -109,53 +109,53 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kubctl-agent
+  name: clusterctl-agent
 subjects:
 - kind: ServiceAccount
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kubctl-agent-config
-  namespace: kubctl-system
+  name: clusterctl-agent-config
+  namespace: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 data:
   details: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/name: kubctl-agent
+      app.kubernetes.io/name: clusterctl-agent
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: kubctl-agent
-        app.kubernetes.io/managed-by: kubctl
+        app.kubernetes.io/name: clusterctl-agent
+        app.kubernetes.io/managed-by: clusterctl
     spec:
-      serviceAccountName: kubctl-agent
+      serviceAccountName: clusterctl-agent
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -163,11 +163,11 @@ spec:
           type: RuntimeDefault
       containers:
       - name: agent
-        image: ghcr.io/razalabs/kubctl-agent:0.1.0
+        image: ghcr.io/razalabs/clusterctl-agent:0.1.0
         imagePullPolicy: IfNotPresent
         env:
         - name: RELAY_URL
-          value: https://api-kubctl.razalabs.com
+          value: https://api-clusterctl.razalabs.com
         - name: CLUSTER_NAME
           value: my-cluster
         - name: PORT
@@ -200,14 +200,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kubctl-agent
-  namespace: kubctl-system
+  name: clusterctl-agent
+  namespace: clusterctl-system
   labels:
-    app.kubernetes.io/name: kubctl-agent
-    app.kubernetes.io/managed-by: kubctl
+    app.kubernetes.io/name: clusterctl-agent
+    app.kubernetes.io/managed-by: clusterctl
 spec:
   selector:
-    app.kubernetes.io/name: kubctl-agent
+    app.kubernetes.io/name: clusterctl-agent
   ports:
   - name: http
     port: 8080

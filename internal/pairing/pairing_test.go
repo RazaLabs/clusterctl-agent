@@ -92,10 +92,10 @@ func TestSecretRoundTrip(t *testing.T) {
 
 // TestWriteVector adds a Go-sealed message to the vector when asked:
 //
-//	KUBCTL_WRITE_VECTOR=1 go test ./internal/pairing -run WriteVector
+//	CLUSTERCTL_WRITE_VECTOR=1 go test ./internal/pairing -run WriteVector
 func TestWriteVector(t *testing.T) {
-	if os.Getenv("KUBCTL_WRITE_VECTOR") == "" {
-		t.Skip("set KUBCTL_WRITE_VECTOR=1 to regenerate")
+	if os.Getenv("CLUSTERCTL_WRITE_VECTOR") == "" {
+		t.Skip("set CLUSTERCTL_WRITE_VECTOR=1 to regenerate")
 	}
 	raw, _ := os.ReadFile("../../testdata/pairing.json")
 	var v map[string]any

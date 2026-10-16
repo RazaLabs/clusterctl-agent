@@ -1,5 +1,5 @@
 // Package rules decides what counts as a problem on a cluster and words it
-// for a phone notification. It must agree with the kubctl app, which runs
+// for a phone notification. It must agree with the clusterctl app, which runs
 // the same checks on live data: testdata/rules holds cases both test against.
 package rules
 
@@ -37,7 +37,7 @@ const (
 type Source string
 
 const (
-	FromKubctl       Source = "kubctl"
+	FromClusterctl   Source = "clusterctl"
 	FromAlertmanager Source = "alertmanager"
 )
 
@@ -77,7 +77,7 @@ const timeFormat = "2006-01-02T15:04:05.000000Z"
 func (a Alert) MarshalJSON() ([]byte, error) {
 	src := a.Source
 	if src == "" {
-		src = FromKubctl
+		src = FromClusterctl
 	}
 	return json.Marshal(alertJSON{
 		ID: a.ID, Title: a.Title, Detail: a.Detail, Severity: a.Severity,
@@ -99,7 +99,7 @@ func (a *Alert) UnmarshalJSON(b []byte) error {
 		j.Severity = Warning
 	}
 	if j.Source != FromAlertmanager {
-		j.Source = FromKubctl
+		j.Source = FromClusterctl
 	}
 	*a = Alert{
 		ID: j.ID, Title: j.Title, Detail: j.Detail, Severity: j.Severity, Since: since, Source: j.Source,

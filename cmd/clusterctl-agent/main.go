@@ -1,5 +1,5 @@
-// Command kubctl-agent watches a Kubernetes cluster for problems and sends
-// alerts to kubctl on your phone. See README.md.
+// Command clusterctl-agent watches a Kubernetes cluster for problems and sends
+// alerts to clusterctl on your phone. See README.md.
 package main
 
 import (
@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/RazaLabs/kubctl-agent/internal/agent"
+	"github.com/RazaLabs/clusterctl-agent/internal/agent"
 )
 
 func main() {

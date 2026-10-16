@@ -1,4 +1,4 @@
-module github.com/RazaLabs/kubctl-agent
+module github.com/RazaLabs/clusterctl-agent
 
 go 1.27.2
 

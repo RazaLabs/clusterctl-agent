@@ -8,7 +8,7 @@ import (
 
 	"github.com/prometheus/alertmanager/template"
 
-	"github.com/RazaLabs/kubctl-agent/internal/rules"
+	"github.com/RazaLabs/clusterctl-agent/internal/rules"
 )
 
 // AmAlert is one alert from an Alertmanager webhook, and whether it's firing.

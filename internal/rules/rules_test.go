@@ -12,7 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// The kubctl app runs these same cases (testdata/rules), so the agent and
+// The clusterctl app runs these same cases (testdata/rules), so the agent and
 // the app agree on what counts as a problem and how it's worded.
 type ruleCase struct {
 	Name    string                       `json:"name"`
@@ -190,10 +190,10 @@ func TestBaselineAndUnloadedKinds(t *testing.T) {
 }
 
 func TestAlertJSONMatchesTheApp(t *testing.T) {
-	a := Alert{ID: "pods/shop/p", Title: "t", Detail: "d", Severity: Critical, Source: FromKubctl, Kind: Pods,
+	a := Alert{ID: "pods/shop/p", Title: "t", Detail: "d", Severity: Critical, Source: FromClusterctl, Kind: Pods,
 		Namespace: "shop", Name: "p", Since: time.Date(2026, 10, 9, 21, 0, 37, 375662000, time.UTC)}
 	b, _ := json.Marshal(a)
-	want := `{"id":"pods/shop/p","title":"t","detail":"d","severity":"critical","since":"2026-10-09T21:00:37.375662Z","source":"kubctl","kind":"pods","namespace":"shop","name":"p"}`
+	want := `{"id":"pods/shop/p","title":"t","detail":"d","severity":"critical","since":"2026-10-09T21:00:37.375662Z","source":"clusterctl","kind":"pods","namespace":"shop","name":"p"}`
 	if string(b) != want {
 		t.Fatalf("got %s", b)
 	}

@@ -7,10 +7,10 @@ RUN go mod download
 COPY . .
 ARG VERSION=dev TARGETOS TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
-    -ldflags="-s -w -X github.com/RazaLabs/kubctl-agent/internal/agent.Version=${VERSION}" \
-    -o /out/kubctl-agent ./cmd/kubctl-agent
+    -ldflags="-s -w -X github.com/RazaLabs/clusterctl-agent/internal/agent.Version=${VERSION}" \
+    -o /out/clusterctl-agent ./cmd/clusterctl-agent
 
 # Static binary plus CA certificates, running as nonroot (uid 65532).
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/kubctl-agent /kubctl-agent
-ENTRYPOINT ["/kubctl-agent"]
+COPY --from=build /out/clusterctl-agent /clusterctl-agent
+ENTRYPOINT ["/clusterctl-agent"]

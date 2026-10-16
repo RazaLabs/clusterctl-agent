@@ -17,8 +17,8 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	gwfake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
-	"github.com/RazaLabs/kubctl-agent/internal/pairing"
-	"github.com/RazaLabs/kubctl-agent/internal/rules"
+	"github.com/RazaLabs/clusterctl-agent/internal/pairing"
+	"github.com/RazaLabs/clusterctl-agent/internal/rules"
 )
 
 // fakeRelay records what the agent pushes.
@@ -76,7 +76,7 @@ func crashingPod(name string) *corev1.Pod {
 }
 
 func config(relay string) Config {
-	return Config{Namespace: "kubctl-system", RelayURL: relay, ClusterName: "kind-dev", Addr: "127.0.0.1:0",
+	return Config{Namespace: "clusterctl-system", RelayURL: relay, ClusterName: "kind-dev", Addr: "127.0.0.1:0",
 		Timing: rules.Timing{}, Tick: 200 * time.Millisecond}
 }
 
@@ -98,7 +98,7 @@ func TestPairingKeysAreCreatedOnceAndFollowTheDeployment(t *testing.T) {
 	if moved.pairing.RelayKey != a.pairing.RelayKey || moved.pairing.RelayURL != "https://other.example" {
 		t.Fatalf("%+v", moved.pairing)
 	}
-	s, _ := kube.CoreV1().Secrets("kubctl-system").Get(ctx, "kubctl-agent", metav1.GetOptions{})
+	s, _ := kube.CoreV1().Secrets("clusterctl-system").Get(ctx, "clusterctl-agent", metav1.GetOptions{})
 	if p, _ := pairing.ParseCode(string(s.Data["pairing-code"])); p != moved.pairing {
 		t.Fatal("pairing code not updated")
 	}
@@ -116,7 +116,7 @@ func TestAlertsFlowToTheRelay(t *testing.T) {
 	go func() { _ = a.Run(ctx) }()
 
 	// First look: existing problems are summed up once, not announced one by one.
-	hello := relay.waitFor(t, func(m PushMessage) bool { return m.ID == "kubctl:hello" })
+	hello := relay.waitFor(t, func(m PushMessage) bool { return m.ID == "clusterctl:hello" })
 	if !strings.Contains(hello.Body, "1 problem right now: old keeps crashing") || hello.Title != "kind-dev" {
 		t.Fatalf("hello %+v", hello)
 	}
@@ -151,7 +151,7 @@ func TestAlertsFlowToTheRelay(t *testing.T) {
 	// The app reads problems and a heartbeat from the state ConfigMap.
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		cm, err := kube.CoreV1().ConfigMaps("kubctl-system").Get(ctx, "kubctl-agent-state", metav1.GetOptions{})
+		cm, err := kube.CoreV1().ConfigMaps("clusterctl-system").Get(ctx, "clusterctl-agent-state", metav1.GetOptions{})
 		if err == nil && cm.Data["heartbeat"] != "" && strings.Contains(cm.Data["alerts"], "pods/shop/old") &&
 			!strings.Contains(cm.Data["alerts"], "pods/shop/new") && cm.Data["version"] == Version {
 			break
@@ -205,7 +205,7 @@ func TestPrivateNotificationsHideDetails(t *testing.T) {
 	open, _ := pushFor(p, a, false, true)
 	hidden, _ := pushFor(p, a, false, false)
 	resolved, _ := pushFor(p, a, true, true)
-	if open.Body != "p ran out of memory\nd" || hidden.Body != "Critical problem. Open kubctl to see it." ||
+	if open.Body != "p ran out of memory\nd" || hidden.Body != "Critical problem. Open clusterctl to see it." ||
 		resolved.Body != "Resolved: p ran out of memory\nd" || resolved.State != "resolved" {
 		t.Fatalf("%q %q %q", open.Body, hidden.Body, resolved.Body)
 	}

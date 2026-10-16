@@ -95,7 +95,7 @@ func (e *Engine) Update(rows []Row, now time.Time, kinds map[Kind]bool, baseline
 		}
 	}
 	for id, a := range e.active {
-		if a.Source != FromKubctl {
+		if a.Source != FromClusterctl {
 			continue
 		}
 		if _, ok := current[id]; ok {

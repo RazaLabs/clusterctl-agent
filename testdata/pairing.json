@@ -1,6 +1,6 @@
 {
  "clusterId": "53248e3ecdda2ecf9bc9b636f3587a33",
- "code": "kubctl-pair-v1:eyJyZWxheSI6Imh0dHBzOi8vcmVsYXkuZXhhbXBsZSIsInJlbGF5S2V5IjoidS1NWnoxeWRHTHQwZHlBRE1zV2RuUzhBSVRnRmZGVEpaYXR0UE1IWGJ4byIsInNlYWxLZXkiOiJpY0kxRkwzVnFTR0x6cW5nblQwdHJfZTBweXRoaEctckpoOWgwaUlreGFJIiwiY2x1c3RlciI6InByb2QtZXUifQ",
+ "code": "clusterctl-pair-v1:eyJyZWxheSI6Imh0dHBzOi8vcmVsYXkuZXhhbXBsZSIsInJlbGF5S2V5IjoidS1NWnoxeWRHTHQwZHlBRE1zV2RuUzhBSVRnRmZGVEpaYXR0UE1IWGJ4byIsInNlYWxLZXkiOiJpY0kxRkwzVnFTR0x6cW5nblQwdHJfZTBweXRoaEctckpoOWgwaUlreGFJIiwiY2x1c3RlciI6InByb2QtZXUifQ",
  "message": {
   "alert": {
    "id": "pods/shop/api",

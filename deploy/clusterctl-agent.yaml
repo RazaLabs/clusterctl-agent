@@ -172,6 +172,15 @@ spec:
           value: my-cluster
         - name: PORT
           value: "8080"
+        # Optional: an enrollment key from your team's settings at members.razalabs.com joins
+        # this cluster to the team, so every signed-in member gets its alerts:
+        #   kubectl -n clusterctl-system create secret generic clusterctl-enroll --from-literal=enroll-key=cck_…
+        - name: ENROLL_KEY
+          valueFrom:
+            secretKeyRef:
+              name: clusterctl-enroll
+              key: enroll-key
+              optional: true
         ports:
         - name: http
           containerPort: 8080

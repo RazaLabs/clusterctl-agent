@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,7 +49,10 @@ type Config struct {
 	ClusterName string
 	RelayCA     string
 	Addr        string
-	Timing      rules.Timing
+	// EnrollKey joins the cluster to an organization at members.razalabs.com (MembersURL).
+	EnrollKey  string
+	MembersURL string
+	Timing     rules.Timing
 	// Tick is how often problems are re-checked without changes (10s).
 	Tick time.Duration
 }
@@ -61,6 +65,9 @@ type Config struct {
 //	RELAY_CA      PEM file of extra CAs to trust for the relay
 //	PORT          HTTP port for /healthz and /alertmanager (8080)
 //	POD_NAMESPACE where the agent's Secret and ConfigMaps live (clusterctl-system)
+//	ENROLL_KEY    an enrollment key (cck_…) from a team's settings at members.razalabs.com:
+//	              the cluster joins that organization and its signed-in members get alerts
+//	MEMBERS_URL   the accounts service (https://members.razalabs.com)
 func FromEnv() (Config, error) {
 	var rc *rest.Config
 	var err error
@@ -83,10 +90,15 @@ func FromEnv() (Config, error) {
 	if port == "" {
 		port = "8080"
 	}
+	members := pairing.TrimSlash(os.Getenv("MEMBERS_URL"))
+	if members == "" {
+		members = "https://members.razalabs.com"
+	}
 	return Config{
 		Rest: rc, Namespace: ns, RelayURL: pairing.TrimSlash(os.Getenv("RELAY_URL")),
 		ClusterName: os.Getenv("CLUSTER_NAME"), RelayCA: os.Getenv("RELAY_CA"),
 		Addr: ":" + port, Timing: rules.DefaultTiming,
+		EnrollKey: strings.TrimSpace(os.Getenv("ENROLL_KEY")), MembersURL: members,
 	}, nil
 }
 
@@ -115,6 +127,8 @@ type Agent struct {
 	details   bool
 	lastState string
 	written   time.Time
+
+	enrollBackoff time.Duration // first retry of enrolling (5s)
 }
 
 // New connects to the cluster and loads (or creates) the pairing keys.
@@ -483,6 +497,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.readConfig(ctx)
 	a.startInformers(ctx)
 	go a.relay.Run(ctx)
+	go a.enroll(ctx)
 
 	srv := &http.Server{Addr: a.cfg.Addr, Handler: a.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	errs := make(chan error, 1)

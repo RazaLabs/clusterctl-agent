@@ -52,6 +52,20 @@ On first start the agent creates its keys in the `clusterctl-agent` Secret. Then
 
   Treat it like a password: it lets a phone receive and decrypt this cluster's alerts.
 
+### Team alerts
+
+On a team plan, every member signed in to the app can get a cluster's alerts without a pairing code. Make an
+enrollment key (`cck_…`) in your team's settings at members.razalabs.com, then:
+
+```sh
+kubectl -n clusterctl-system create secret generic clusterctl-enroll --from-literal=enroll-key=cck_…
+kubectl -n clusterctl-system rollout restart deploy/clusterctl-agent
+```
+
+On start the agent joins the cluster to the team (once per relay key; it remembers that in `clusterctl-agent-state`).
+If members.razalabs.com can't be reached it keeps retrying; a refused key is logged and not retried. Pairing codes keep
+working either way.
+
 With GitOps (Argo CD, Flux), commit `deploy/clusterctl-agent.yaml` to your repo instead of installing from the app.
 
 ## What it creates
@@ -64,7 +78,8 @@ With GitOps (Argo CD, Flux), commit `deploy/clusterctl-agent.yaml` to your repo 
 | Role + Binding `clusterctl-agent` | Its own Secret and ConfigMaps only |
 | Secret `clusterctl-agent` | Relay key, encryption key, pairing code |
 | ConfigMap `clusterctl-agent-config` | `details: "true"` or `"false"` |
-| ConfigMap `clusterctl-agent-state` | Current problems and a heartbeat, which the app reads |
+| ConfigMap `clusterctl-agent-state` | Current problems and a heartbeat, which the app reads; the team it enrolled in |
+| Secret `clusterctl-enroll` (yours, optional) | `enroll-key`: joins the cluster to your team (see [Team alerts](#team-alerts)) |
 
 ## Configuration
 
@@ -74,6 +89,8 @@ With GitOps (Argo CD, Flux), commit `deploy/clusterctl-agent.yaml` to your repo 
 | `CLUSTER_NAME` | The name shown in notifications |
 | `RELAY_CA` | A PEM file of extra CAs to trust, for a self-hosted relay with a private CA |
 | `PORT` | HTTP port for `/healthz` and `/alertmanager` (8080) |
+| `ENROLL_KEY` | An enrollment key (`cck_…`) from your team's settings: joins the cluster to the team. The manifest reads it from the optional Secret `clusterctl-enroll`, key `enroll-key` |
+| `MEMBERS_URL` | The accounts service (`https://members.razalabs.com`) |
 | `POD_NAMESPACE` | Where its Secret and ConfigMaps live (`clusterctl-system`) |
 | `KUBECONFIG`, `KUBE_CONTEXT` | Run outside a cluster, for development |
 

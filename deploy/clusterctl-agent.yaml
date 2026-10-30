@@ -5,6 +5,10 @@
 # 3. Pair your phone: in clusterctl, open Settings › Alerts on this cluster. If your
 #    account can read the agent's secret it pairs by itself; otherwise share this code:
 #    kubectl -n clusterctl-system get secret clusterctl-agent -o jsonpath='{.data.pairing-code}' | base64 -d
+#
+# In a team: an enrollment key from the team's clusterctl settings (members.razalabs.com) joins
+# this cluster to the team, so every signed-in member gets its alerts without the code:
+#    kubectl -n clusterctl-system create secret generic clusterctl-enroll --from-literal=enroll-key=cck_…
 ---
 apiVersion: v1
 kind: Namespace
@@ -172,9 +176,6 @@ spec:
           value: my-cluster
         - name: PORT
           value: "8080"
-        # Optional: an enrollment key from your team's settings at members.razalabs.com joins
-        # this cluster to the team, so every signed-in member gets its alerts:
-        #   kubectl -n clusterctl-system create secret generic clusterctl-enroll --from-literal=enroll-key=cck_…
         - name: ENROLL_KEY
           valueFrom:
             secretKeyRef:

@@ -1,6 +1,6 @@
 module github.com/RazaLabs/clusterctl-agent
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/prometheus/alertmanager v0.34.1

@@ -18,8 +18,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -55,6 +59,9 @@ type Config struct {
 	Timing     rules.Timing
 	// Tick is how often problems are re-checked without changes (10s).
 	Tick time.Duration
+	// Discover is how often optional kinds not yet watched (Argo CD,
+	// cert-manager) are looked for again, so installing them later works (5m).
+	Discover time.Duration
 }
 
 // FromEnv reads the configuration. In a pod it uses the service account;
@@ -107,6 +114,7 @@ type Agent struct {
 	cfg     Config
 	kube    kubernetes.Interface
 	gw      gwclient.Interface
+	dyn     dynamic.Interface
 	pairing pairing.Pairing
 	relay   *RelayClient
 	engine  *rules.Engine
@@ -115,6 +123,7 @@ type Agent struct {
 	informers map[rules.Kind]cache.SharedIndexInformer
 	mu        sync.Mutex
 	failed    map[rules.Kind]error
+	skipped   map[rules.Kind]bool // optional kinds installed but not readable (logged once)
 
 	listers snapshotFuncs
 	trigger chan struct{}
@@ -141,15 +150,19 @@ func New(ctx context.Context, cfg Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewWithClients(ctx, cfg, kube, gw)
+	dyn, err := dynamic.NewForConfig(cfg.Rest)
+	if err != nil {
+		return nil, err
+	}
+	return NewWithClients(ctx, cfg, kube, gw, dyn)
 }
 
 // NewWithClients is New with clients supplied (tests use fakes).
-func NewWithClients(ctx context.Context, cfg Config, kube kubernetes.Interface, gw gwclient.Interface) (*Agent, error) {
+func NewWithClients(ctx context.Context, cfg Config, kube kubernetes.Interface, gw gwclient.Interface, dyn dynamic.Interface) (*Agent, error) {
 	var err error
 	a := &Agent{
-		cfg: cfg, kube: kube, gw: gw, engine: rules.NewEngine(cfg.Timing),
-		informers: map[rules.Kind]cache.SharedIndexInformer{}, failed: map[rules.Kind]error{},
+		cfg: cfg, kube: kube, gw: gw, dyn: dyn, engine: rules.NewEngine(cfg.Timing),
+		informers: map[rules.Kind]cache.SharedIndexInformer{}, failed: map[rules.Kind]error{}, skipped: map[rules.Kind]bool{},
 		trigger: make(chan struct{}, 1), amIn: make(chan []AmAlert, 16),
 		amActive: map[string]rules.Alert{}, details: true,
 	}
@@ -358,6 +371,55 @@ func (a *Agent) startInformers(ctx context.Context) {
 		)
 		g.Start(ctx.Done())
 	}
+	a.discover(ctx)
+}
+
+// optionalKind is a CRD watched only where it's installed and the agent may
+// read it (an install from before it was added doesn't grant that).
+type optionalKind struct {
+	kind rules.Kind
+	gvr  schema.GroupVersionResource
+	set  func(*rules.Objects, []*unstructured.Unstructured)
+}
+
+var optionalKinds = []optionalKind{
+	{rules.Applications, schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "applications"},
+		func(o *rules.Objects, l []*unstructured.Unstructured) { o.Applications = l }},
+	{rules.Certificates, schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "certificates"},
+		func(o *rules.Objects, l []*unstructured.Unstructured) { o.Certificates = l }},
+}
+
+// discover starts watching optional kinds that have become available.
+// Missing ones are skipped quietly; the run loop asks again every few minutes.
+func (a *Agent) discover(ctx context.Context) {
+	for _, k := range optionalKinds {
+		if a.informers[k.kind] != nil || !served(a.kube, k.gvr.GroupVersion().String(), k.gvr.Resource) {
+			continue
+		}
+		if _, err := a.dyn.Resource(k.gvr).List(ctx, metav1.ListOptions{Limit: 1}); err != nil {
+			// Forbidden until the agent is reinstalled with the current permissions.
+			if !a.skipped[k.kind] {
+				a.skipped[k.kind] = true
+				slog.Info("not watching an installed kind; trying again later", "kind", k.kind, "err", err)
+			}
+			continue
+		}
+		inf := dynamicinformer.NewFilteredDynamicInformer(a.dyn, k.gvr, metav1.NamespaceAll, 0, cache.Indexers{}, nil)
+		a.watch(k.kind, inf.Informer())
+		lister, set := inf.Lister(), k.set
+		a.listers = append(a.listers, func(o *rules.Objects) {
+			objs, _ := lister.List(labels.Everything())
+			list := make([]*unstructured.Unstructured, 0, len(objs))
+			for _, obj := range objs {
+				if u, ok := obj.(*unstructured.Unstructured); ok {
+					list = append(list, u)
+				}
+			}
+			set(o, list)
+		})
+		go inf.Informer().RunWithContext(ctx)
+		slog.Info("watching", "kind", k.kind)
+	}
 }
 
 func served(kube kubernetes.Interface, groupVersion string, resources ...string) bool {
@@ -514,8 +576,14 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	tick := time.NewTicker(every)
 	config := time.NewTicker(30 * time.Second)
+	rediscover := a.cfg.Discover
+	if rediscover == 0 {
+		rediscover = 5 * time.Minute
+	}
+	discover := time.NewTicker(rediscover)
 	defer tick.Stop()
 	defer config.Stop()
+	defer discover.Stop()
 	var debounce <-chan time.Time
 	for {
 		select {
@@ -536,6 +604,8 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.evaluate(ctx)
 		case <-config.C:
 			a.readConfig(ctx)
+		case <-discover.C:
+			a.discover(ctx)
 		case alerts := <-a.amIn:
 			a.alertmanager(ctx, alerts)
 		}

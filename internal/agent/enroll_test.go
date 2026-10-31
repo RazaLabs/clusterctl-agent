@@ -68,7 +68,7 @@ func enrollingAgent(t *testing.T, kube kubernetes.Interface, members, key string
 	t.Helper()
 	cfg := config("https://relay.example")
 	cfg.EnrollKey, cfg.MembersURL = key, members
-	a, err := NewWithClients(context.Background(), cfg, kube, gwfake.NewSimpleClientset())
+	a, err := NewWithClients(context.Background(), cfg, kube, gwfake.NewSimpleClientset(), newDynamic())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,12 +3,14 @@ package rules
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -36,6 +38,10 @@ type Row struct {
 	Ready    int               // workloads
 	Desired  int               // workloads
 	Restarts int               // pods
+	// Applications and certificates: why, in their controller's words.
+	Message string
+	Target  string    // applications: the namespace Argo CD deploys to
+	Expires time.Time // certificates: status.notAfter
 }
 
 // Objects is a snapshot of the watched kinds. Nil slices are kinds that
@@ -50,6 +56,9 @@ type Objects struct {
 	Jobs         []*batchv1.Job
 	Gateways     []*gatewayv1.Gateway
 	HTTPRoutes   []*gatewayv1.HTTPRoute
+	// CRDs without Go types here, read as they come (see custom.go).
+	Applications []*unstructured.Unstructured
+	Certificates []*unstructured.Unstructured
 }
 
 // Rows turns objects into rows. Workload health needs the pods, so it
@@ -155,6 +164,12 @@ func Rows(o Objects) []Row {
 		}
 		rows = append(rows, Row{Kind: HTTPRoutes, Name: r.Name, Namespace: r.Namespace, Labels: r.Labels,
 			Health: conditionHealth(status), Status: text})
+	}
+	for _, u := range o.Applications {
+		rows = append(rows, applicationRow(u))
+	}
+	for _, u := range o.Certificates {
+		rows = append(rows, certificateRow(u))
 	}
 	return rows
 }

@@ -62,14 +62,45 @@ func ProblemOf(r Row, now time.Time) (Alert, bool) {
 		if r.Health == Error {
 			sev, title = Critical, "Route "+r.Name+" was rejected"
 		}
+	// Argo CD's own words: Degraded is its health status.
+	case Applications:
+		switch {
+		case r.Health == Error && r.Status == "SyncFailed":
+			sev, title = Warning, r.Name+" failed to sync"
+		case r.Health == Error:
+			sev, title = Critical, r.Name+" is Degraded"
+		}
+	case Certificates:
+		left := r.Expires.Sub(now)
+		switch {
+		case !r.Expires.IsZero() && left <= 0:
+			sev, title = Critical, r.Name+" has expired"
+		case r.Health == Error && r.Expires.IsZero():
+			sev, title = Warning, r.Name+" can’t be issued"
+		case r.Health == Error:
+			sev, title = Warning, r.Name+" can’t renew"
+		case !r.Expires.IsZero() && left < CertificateNotice:
+			sev, title = Warning, r.Name+" "+expiresIn(left)
+		}
 	}
 	if sev == "" {
 		return Alert{}, false
 	}
 	return Alert{
 		ID: AlertID(r.Kind, r.Namespace, r.Name), Title: title, Detail: detail(r), Severity: sev, Since: now,
-		Source: FromClusterctl, Kind: r.Kind, Namespace: r.Namespace, Name: r.Name,
+		Source: sourceOf(r.Kind), Kind: r.Kind, Namespace: r.Namespace, Name: r.Name,
 	}, true
+}
+
+// sourceOf names the tool behind the optional kinds; the rest are clusterctl's.
+func sourceOf(k Kind) Source {
+	switch k {
+	case Applications:
+		return FromArgoCD
+	case Certificates:
+		return FromCertManager
+	}
+	return FromClusterctl
 }
 
 var workloadKinds = map[Kind]bool{Deployments: true, StatefulSets: true, DaemonSets: true, Jobs: true}
@@ -216,6 +247,34 @@ func detail(r Row) string {
 		return fmt.Sprintf("%s%s · %d of %d ready", singular[r.Kind], where, r.Ready, r.Desired)
 	case Nodes:
 		return "Node · " + r.Status
+	// "Argo CD · payments · Deployment fraud-detector: exceeded its progress deadline"
+	case Applications:
+		why := first(r.Message, r.Status)
+		if why == "SyncFailed" {
+			why = "Sync failed"
+		}
+		return dots("Argo CD", r.Target, why)
+	// "cert-manager · web · Issuer letsencrypt not found", or "… · valid until 6 Nov 2026"
+	case Certificates:
+		why := ""
+		switch {
+		case r.Health == Error && r.Message != "":
+			why = r.Message
+		case !r.Expires.IsZero():
+			why = "valid until " + r.Expires.UTC().Format("2 Jan 2006")
+		}
+		return dots("cert-manager", r.Namespace, why)
 	}
 	return singular[r.Kind] + where + " · " + r.Status
+}
+
+// dots joins the parts that aren't empty with " · ".
+func dots(parts ...string) string {
+	var out []string
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, " · ")
 }

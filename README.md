@@ -8,7 +8,12 @@ checks as the app:
 - a crash-looping pod, or one that can't pull its image or ran out of memory,
 - a deployment, statefulset or daemonset with too few ready replicas,
 - a failed job, a node that went NotReady, a lost volume claim,
-- a Gateway that isn't programmed, an HTTPRoute that was rejected.
+- a Gateway that isn't programmed, an HTTPRoute that was rejected,
+- an **Argo CD** Application that is Degraded or failed to sync,
+- a **cert-manager** Certificate that can't renew, or expires within 14 days.
+
+Argo CD and cert-manager are optional: the agent watches them only where they're installed (it looks again every 5
+minutes, so installing them later works) and skips them quietly if it isn't allowed to read them.
 
 A problem must last 30 seconds (5 minutes for warnings like a stuck rollout) before it alerts, so blips and normal
 rollouts stay quiet. It can also forward your **Alertmanager** alerts.
@@ -74,7 +79,7 @@ With GitOps (Argo CD, Flux), commit `deploy/clusterctl-agent.yaml` to your repo 
 | --- | --- |
 | Namespace `clusterctl-system` | Everything below lives here |
 | ServiceAccount, Deployment, Service `clusterctl-agent` | The agent (10m CPU, 48Mi memory, non-root, read-only filesystem) |
-| ClusterRole + Binding `clusterctl-agent` | get/list/watch pods, nodes, PVCs, namespaces, deployments, statefulsets, daemonsets, jobs, gateways, httproutes |
+| ClusterRole + Binding `clusterctl-agent` | get/list/watch pods, nodes, PVCs, namespaces, deployments, statefulsets, daemonsets, jobs, gateways, httproutes, Argo CD applications, cert-manager certificates |
 | Role + Binding `clusterctl-agent` | Its own Secret and ConfigMaps only |
 | Secret `clusterctl-agent` | Relay key, encryption key, pairing code |
 | ConfigMap `clusterctl-agent-config` | `details: "true"` or `"false"` |
@@ -130,7 +135,8 @@ docker build -t clusterctl-agent:dev .
 - `internal/pairing`: keys, pairing codes and encryption.
 - `internal/agent`: watching, the state ConfigMap, the relay client and the Alertmanager webhook.
 
-The clusterctl app runs the same checks on live data, so both test against the cases in `testdata/`:
+The clusterctl app runs the same checks on live data, so both test against the cases in `testdata/`
+(Argo CD and cert-manager are checked only here, tested in `internal/rules/custom_test.go`):
 
 - `testdata/rules/*.json`: Kubernetes objects and the exact alerts they must produce.
 - `testdata/pairing.json`: pairing codes and encrypted messages from the app, which the agent must read, and the

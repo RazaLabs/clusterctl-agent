@@ -22,10 +22,14 @@ const (
 	PVCs         Kind = "pvcs"
 	Gateways     Kind = "gateways"
 	HTTPRoutes   Kind = "httproutes"
+	// Optional, from CRDs: watched only where they're installed.
+	Applications Kind = "applications" // Argo CD
+	Certificates Kind = "certificates" // cert-manager
 )
 
 // AlertKinds are the kinds checked for problems.
-var AlertKinds = []Kind{Nodes, Pods, Deployments, StatefulSets, DaemonSets, Jobs, PVCs, Gateways, HTTPRoutes}
+var AlertKinds = []Kind{Nodes, Pods, Deployments, StatefulSets, DaemonSets, Jobs, PVCs, Gateways, HTTPRoutes,
+	Applications, Certificates}
 
 type Severity string
 
@@ -39,6 +43,8 @@ type Source string
 const (
 	FromClusterctl   Source = "clusterctl"
 	FromAlertmanager Source = "alertmanager"
+	FromArgoCD       Source = "argocd"
+	FromCertManager  Source = "cert-manager"
 )
 
 // Alert is something wrong on a cluster, worded for a notification.
@@ -98,7 +104,9 @@ func (a *Alert) UnmarshalJSON(b []byte) error {
 	if j.Severity != Critical {
 		j.Severity = Warning
 	}
-	if j.Source != FromAlertmanager {
+	switch j.Source {
+	case FromAlertmanager, FromArgoCD, FromCertManager:
+	default:
 		j.Source = FromClusterctl
 	}
 	*a = Alert{

@@ -8,13 +8,21 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/prometheus/alertmanager/template"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	kubetesting "k8s.io/client-go/testing"
 	gwfake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
 	"github.com/RazaLabs/clusterctl-agent/internal/pairing"
@@ -83,18 +91,18 @@ func config(relay string) Config {
 func TestPairingKeysAreCreatedOnceAndFollowTheDeployment(t *testing.T) {
 	ctx := context.Background()
 	kube := kubefake.NewClientset()
-	a, err := NewWithClients(ctx, config("https://relay.example/"), kube, gwfake.NewSimpleClientset())
+	a, err := NewWithClients(ctx, config("https://relay.example/"), kube, gwfake.NewSimpleClientset(), newDynamic())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a.pairing.RelayURL != "https://relay.example" || a.pairing.Cluster != "kind-dev" {
 		t.Fatalf("%+v", a.pairing)
 	}
-	again, _ := NewWithClients(ctx, config("https://relay.example"), kube, gwfake.NewSimpleClientset())
+	again, _ := NewWithClients(ctx, config("https://relay.example"), kube, gwfake.NewSimpleClientset(), newDynamic())
 	if again.pairing != a.pairing {
 		t.Fatal("keys changed on restart")
 	}
-	moved, _ := NewWithClients(ctx, config("https://other.example"), kube, gwfake.NewSimpleClientset())
+	moved, _ := NewWithClients(ctx, config("https://other.example"), kube, gwfake.NewSimpleClientset(), newDynamic())
 	if moved.pairing.RelayKey != a.pairing.RelayKey || moved.pairing.RelayURL != "https://other.example" {
 		t.Fatalf("%+v", moved.pairing)
 	}
@@ -109,7 +117,7 @@ func TestAlertsFlowToTheRelay(t *testing.T) {
 	defer cancel()
 	relay := newRelay(t)
 	kube := kubefake.NewClientset(crashingPod("old"))
-	a, err := NewWithClients(ctx, config(relay.URL), kube, gwfake.NewSimpleClientset())
+	a, err := NewWithClients(ctx, config(relay.URL), kube, gwfake.NewSimpleClientset(), newDynamic())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,5 +216,93 @@ func TestPrivateNotificationsHideDetails(t *testing.T) {
 	if open.Body != "p ran out of memory\nd" || hidden.Body != "Critical problem. Open clusterctl to see it." ||
 		resolved.Body != "Resolved: p ran out of memory\nd" || resolved.State != "resolved" {
 		t.Fatalf("%q %q %q", open.Body, hidden.Body, resolved.Body)
+	}
+}
+
+var (
+	applicationsGVR = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "applications"}
+	certificatesGVR = schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "certificates"}
+)
+
+// newDynamic is the dynamic client for Argo CD and cert-manager objects.
+func newDynamic(objs ...runtime.Object) *dynamicfake.FakeDynamicClient {
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
+		applicationsGVR: "ApplicationList", certificatesGVR: "CertificateList",
+	}, objs...)
+}
+
+func argoApp(name, health string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "argoproj.io/v1alpha1", "kind": "Application",
+		"metadata": map[string]any{"name": name, "namespace": "argocd"},
+		"spec":     map[string]any{"destination": map[string]any{"namespace": "payments"}},
+		"status":   map[string]any{"health": map[string]any{"status": health}, "sync": map[string]any{"status": "Synced"}},
+	}}
+}
+
+func TestArgoCDIsWatchedOnceInstalledAndCertManagerSkippedWhenForbidden(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	relay := newRelay(t)
+	kube := kubefake.NewClientset()
+	disco := kube.Discovery().(*fakediscovery.FakeDiscovery)
+	disco.Resources = []*metav1.APIResourceList{
+		{GroupVersion: "argoproj.io/v1alpha1", APIResources: []metav1.APIResource{{Name: "applications"}}},
+		{GroupVersion: "cert-manager.io/v1", APIResources: []metav1.APIResource{{Name: "certificates"}}},
+	}
+	// Neither is installed when the agent starts.
+	var installed atomic.Bool
+	disco.PrependReactor("get", "resource", func(kubetesting.Action) (bool, runtime.Object, error) {
+		if installed.Load() {
+			return false, nil, nil
+		}
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{}, "")
+	})
+	expired := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "cert-manager.io/v1", "kind": "Certificate",
+		"metadata": map[string]any{"name": "api-tls", "namespace": "web"},
+		"status":   map[string]any{"notAfter": "2020-01-01T00:00:00Z"},
+	}}
+	dyn := newDynamic(argoApp("fraud-detector", "Degraded"), expired)
+	// An install from before cert-manager was read: not allowed.
+	dyn.PrependReactor("list", "certificates", func(kubetesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewForbidden(certificatesGVR.GroupResource(), "", nil)
+	})
+	cfg := config(relay.URL)
+	cfg.Discover = 100 * time.Millisecond
+	a, err := NewWithClients(ctx, cfg, kube, gwfake.NewSimpleClientset(), dyn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = a.Run(ctx) }()
+	relay.waitFor(t, func(m PushMessage) bool { return m.ID == "clusterctl:hello" })
+
+	installed.Store(true)
+	fired := relay.waitFor(t, func(m PushMessage) bool {
+		return m.ID == "applications/argocd/fraud-detector" && m.State == "firing"
+	})
+	if fired.Body != "fraud-detector is Degraded\nArgo CD · payments · Degraded" {
+		t.Fatalf("body %q", fired.Body)
+	}
+	var inside struct {
+		Alert rules.Alert `json:"alert"`
+	}
+	if err := pairing.Open(a.pairing.SealKey, fired.Sealed, &inside); err != nil || inside.Alert.Kind != rules.Applications ||
+		inside.Alert.Source != rules.FromArgoCD || inside.Alert.Namespace != "argocd" || inside.Alert.Name != "fraud-detector" {
+		t.Fatalf("sealed %+v %v", inside, err)
+	}
+
+	if _, err := dyn.Resource(applicationsGVR).Namespace("argocd").Update(ctx, argoApp("fraud-detector", "Healthy"),
+		metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	relay.waitFor(t, func(m PushMessage) bool { return m.ID == "applications/argocd/fraud-detector" && m.State == "resolved" })
+
+	relay.mu.Lock()
+	defer relay.mu.Unlock()
+	for _, m := range relay.got {
+		if strings.HasPrefix(m.ID, "certificates/") {
+			t.Fatalf("read a forbidden kind: %+v", m)
+		}
 	}
 }

@@ -134,6 +134,8 @@ type Agent struct {
 	amLast    time.Time
 	baselined bool
 	details   bool
+	mutes     map[string]time.Time // alert ID → until when it's not pushed
+	badMutes  string               // the malformed mutes last logged
 	lastState string
 	written   time.Time
 
@@ -223,7 +225,33 @@ func (a *Agent) ensurePairing(ctx context.Context) (pairing.Pairing, error) {
 
 func (a *Agent) readConfig(ctx context.Context) {
 	cm, err := a.kube.CoreV1().ConfigMaps(a.cfg.Namespace).Get(ctx, configName, metav1.GetOptions{})
-	a.details = err != nil || cm.Data["details"] != "false"
+	var data map[string]string
+	if err == nil {
+		data = cm.Data
+	}
+	a.details = data["details"] != "false"
+	mutes, err := parseMutes(data["mutes"])
+	bad := ""
+	if err != nil {
+		// Logged once, not on every re-read.
+		if bad = data["mutes"]; bad != a.badMutes {
+			slog.Warn("ignoring malformed mutes", "err", err)
+		}
+	}
+	a.mutes, a.badMutes = mutes, bad
+}
+
+// parseMutes reads the app's mutes: alert ID → RFC 3339 time until which
+// it's not pushed. Empty is none.
+func parseMutes(raw string) (map[string]time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var mutes map[string]time.Time
+	if err := json.Unmarshal([]byte(raw), &mutes); err != nil {
+		return nil, err
+	}
+	return mutes, nil
 }
 
 // ------------------------------------------------------------ state
@@ -482,7 +510,13 @@ func (a *Agent) evaluate(ctx context.Context) {
 	a.writeState(ctx, !ch.Empty() || first)
 }
 
+// push sends a change to phones, unless the alert is muted. Its state is
+// tracked either way, so it isn't pushed again when the mute ends.
 func (a *Agent) push(al rules.Alert, resolved bool) {
+	if until, ok := a.mutes[al.ID]; ok && time.Now().Before(until) {
+		slog.Info("alert muted", "id", al.ID, "resolved", resolved, "until", until)
+		return
+	}
 	m, err := pushFor(a.pairing, al, resolved, a.details)
 	if err != nil {
 		slog.Error("sealing alert", "err", err)

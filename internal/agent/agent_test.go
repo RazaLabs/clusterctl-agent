@@ -306,3 +306,81 @@ func TestArgoCDIsWatchedOnceInstalledAndCertManagerSkippedWhenForbidden(t *testi
 		}
 	}
 }
+
+func TestParseMutes(t *testing.T) {
+	got, err := parseMutes(`{"am:3f2a":"2026-10-31T13:00:00Z","applications/argocd/fraud-detector":"2026-11-01T08:00:00+01:00"}`)
+	if err != nil || len(got) != 2 || !got["am:3f2a"].Equal(time.Date(2026, 10, 31, 13, 0, 0, 0, time.UTC)) ||
+		!got["applications/argocd/fraud-detector"].Equal(time.Date(2026, 11, 1, 7, 0, 0, 0, time.UTC)) {
+		t.Fatalf("%v %v", got, err)
+	}
+	if got, err := parseMutes(" "); got != nil || err != nil {
+		t.Fatalf("empty: %v %v", got, err)
+	}
+	for _, bad := range []string{"nope", `{"am:1":"tomorrow"}`, `["am:1"]`} {
+		if got, err := parseMutes(bad); got != nil || err == nil {
+			t.Fatalf("%q: %v %v", bad, got, err)
+		}
+	}
+}
+
+func TestMutedAlertsAreTrackedButNotPushed(t *testing.T) {
+	ctx := context.Background()
+	mutes := func(until time.Time) *corev1.ConfigMap {
+		return &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: configName, Namespace: "clusterctl-system"},
+			Data:       map[string]string{"details": "true", "mutes": `{"am:f1":"` + until.UTC().Format(time.RFC3339) + `"}`},
+		}
+	}
+	kube := kubefake.NewClientset(mutes(time.Now().Add(time.Hour)))
+	a, err := NewWithClients(ctx, config("https://relay.example"), kube, gwfake.NewSimpleClientset(), newDynamic())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.readConfig(ctx)
+	pushed := func() []string {
+		var ids []string
+		for _, m := range a.relay.queue {
+			ids = append(ids, m.ID+" "+m.State)
+		}
+		a.relay.queue = nil
+		return ids
+	}
+	crash := rules.Alert{ID: "am:f1", Title: "api-1 crash loops", Severity: rules.Critical, Source: rules.FromAlertmanager}
+	other := rules.Alert{ID: "am:f2", Title: "disk filling", Severity: rules.Warning, Source: rules.FromAlertmanager}
+
+	// Muted: still tracked, not pushed; others are.
+	a.alertmanager(ctx, []AmAlert{{Alert: crash, Firing: true}, {Alert: other, Firing: true}})
+	if got := pushed(); len(got) != 1 || got[0] != "am:f2 firing" {
+		t.Fatalf("pushed %v", got)
+	}
+	if _, ok := a.amActive["am:f1"]; !ok {
+		t.Fatal("muted alert not tracked")
+	}
+
+	// The mute ends: still firing isn't news, resolving is.
+	if _, err := kube.CoreV1().ConfigMaps("clusterctl-system").Update(ctx, mutes(time.Now().Add(-time.Minute)),
+		metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	a.readConfig(ctx)
+	a.alertmanager(ctx, []AmAlert{{Alert: crash, Firing: true}})
+	if got := pushed(); len(got) != 0 {
+		t.Fatalf("re-pushed after the mute: %v", got)
+	}
+	a.alertmanager(ctx, []AmAlert{{Alert: crash}})
+	if got := pushed(); len(got) != 1 || got[0] != "am:f1 resolved" {
+		t.Fatalf("pushed %v", got)
+	}
+
+	// Malformed: no mutes.
+	cm := mutes(time.Now().Add(time.Hour))
+	cm.Data["mutes"] = "{"
+	if _, err := kube.CoreV1().ConfigMaps("clusterctl-system").Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	a.readConfig(ctx)
+	a.alertmanager(ctx, []AmAlert{{Alert: crash, Firing: true}})
+	if got := pushed(); len(got) != 1 || got[0] != "am:f1 firing" || a.badMutes != "{" {
+		t.Fatalf("pushed %v", got)
+	}
+}

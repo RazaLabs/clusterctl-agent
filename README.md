@@ -82,7 +82,7 @@ With GitOps (Argo CD, Flux), commit `deploy/clusterctl-agent.yaml` to your repo 
 | ClusterRole + Binding `clusterctl-agent` | get/list/watch pods, nodes, PVCs, namespaces, deployments, statefulsets, daemonsets, jobs, gateways, httproutes, Argo CD applications, cert-manager certificates |
 | Role + Binding `clusterctl-agent` | Its own Secret and ConfigMaps only |
 | Secret `clusterctl-agent` | Relay key, encryption key, pairing code |
-| ConfigMap `clusterctl-agent-config` | `details: "true"` or `"false"` |
+| ConfigMap `clusterctl-agent-config` | `details: "true"` or `"false"`; `mutes`, which the app writes: JSON of alert ID → RFC 3339 time until which that alert isn't pushed (re-read every 30 seconds) |
 | ConfigMap `clusterctl-agent-state` | Current problems and a heartbeat, which the app reads; the team it enrolled in |
 | Secret `clusterctl-enroll` (yours, optional) | `enroll-key`: joins the cluster to your team (see [Team alerts](#team-alerts)) |
 

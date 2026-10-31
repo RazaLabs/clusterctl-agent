@@ -1,4 +1,4 @@
-# clusterctl agent 0.1.0: sends alerts about this cluster to clusterctl on your phone.
+# clusterctl agent 0.3.0: sends alerts about this cluster to clusterctl on your phone.
 #
 # 1. Check CLUSTER_NAME below: it is the name shown in notifications.
 # 2. kubectl apply -f clusterctl-agent.yaml
@@ -183,7 +183,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: agent
-        image: ghcr.io/razalabs/clusterctl-agent:0.1.0
+        image: ghcr.io/razalabs/clusterctl-agent:0.3.0
         imagePullPolicy: IfNotPresent
         env:
         - name: RELAY_URL
